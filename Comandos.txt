@@ -1,0 +1,237 @@
+---------  Actualizacion del SO ---------------
+
+yum update --refresh -y
+
+--------- Cambiar de nombre a la MV -----------
+
+hostnamectl set-hostname [nuevo-nombre]
+reboot -h 0
+
+--------- Instalacion de SSH y Net Tools ------------
+
+sudo dnf update
+sudo dnf install net-tools
+sudo dnf install openssh-server
+sudo systemctl start sshd
+sudo systemctl enable sshd
+sudo systemctl status sshd
+
+-------- Instalacion del servidor Apache ------------
+
+yum install httpd -y
+service httpd start
+service httpd status
+systemctl enable httpd
+firewall-cmd --permanent --zone=public --add-service=http
+firewall-cmd --permanent --zone=public --add-service=https
+firewall-cmd --reload
+
+----------------- Instalar VIM y Nano ---------------
+
+yum install nano vim -y
+
+-------- Directorio del servidor --------------------
+
+/var/www/html/
+
+-------- Instalacion del Servidor de BD -------------
+
+yum install mysql mysql-server -y
+systemctl start mysqld
+systemctl status mysqld
+systemctl enable mysqld
+mysql_secure_installation
+	{no
+	newpass
+	no
+	}
+mysql -u root -p
+	show databases;
+	create database [nombre-BD];
+exit;
+
+-------- 	Instalacion de PHP 	-------------
+
+yum install php -y
+dnf install php-fpm -y
+dnf install php-cli php-fpm php-curl php-mysqlnd php-gd php-opcache php-zip php-intl php-common php-bcmath php-imagick php-xml
+php -v
+systemctl restart php-fpm
+systemctl restart httpd
+yum install php-mysqlnd -y
+
+-------- Instalacion de Wordpress 	-------------
+
+yum install wget unzip -y
+wget [link_de_wordpress].zip
+unzip latest.zip
+	{
+	cd /var/www/html/wordpress	
+	nano wp-config.php
+	[pegamos la info que proporciona wordpress]
+	}
+
+
+========== PARA SISTEMA DISTRIBUIDO =======
+
+------- Servidor Wordpress -------
+
+yum install httpd -y
+service httpd start
+service httpd status
+systemctl enable httpd
+firewall-cmd --permanent --zone=public --add-service=http
+firewall-cmd --reload
+
+yum install php -y
+dnf install php-fpm -y
+dnf install php-cli php-fpm php-curl php-mysqlnd php-gd php-opcache php-zip php-intl php-common php-bcmath php-imagick php-xml
+php -v
+systemctl restart php-fpm
+systemctl restart httpd
+yum install php-mysqlnd -y
+
+yum install wget unzip -y
+wget [link_de_wordpress].zip
+unzip latest.zip
+
+systemctl  restart php-fpm
+systemctl restart httpd
+yum install php-mysqlnd –y
+
+
+------- Servidor BD -------
+
+
+yum install mysql mysql-server -y
+systemctl start mysqld
+systemctl status mysqld
+systemctl enable mysqld
+mysql_secure_installation
+	{no
+	newpass
+	no
+	}
+firewall-cmd --permanent --add-service-http --zone=public
+firewall-cmd --reload
+setenforce 0
+mysql -u root -p
+	show databases;
+	create database [nombre-BD];
+	RENAME USER 'root'@'localhost' TO 'root'@'%';
+exit;
+
+firewall-cmd --permanent --zone=public --add-service=http
+firewall-cmd --reload
+setenforce 0
+firewall-cmd --zone=public --add-port=3306/tcp --permanent
+firewall-cmd --reload
+
+
+
+-------------------SERVIDOR PROXY ------
+yum install epel-release -y
+yum install squid -y
+squid -v
+systemctl start squid
+systemctl enable squid
+yum install nano -y
+cd /etc/squid/
+nano palabras-bloqueadas
+nano paginas-bloqueadas
+cp /etc/squid/squid.conf{,.bak}
+nano squid.conf
+service squid restart
+firewall-cmd --add-service=squid --permanent  
+firewall-cmd --reload
+systemctl status squid
+
+
+-----------------
+
+
+
+nmtui
+systemctl restart NetworkManager
+	[
+	Aqui agregamos la direccion ip estica y configuramos el dns y la direccion gateway
+	]
+yum install nginex -y
+yum install keepalived -y
+sestatus
+(Verificar sis esta activo el selinux)
+service nginx start
+systemctl enable nginx
+clear
+service nginx status
+firewall-cmd --permanent --add-service=http
+firewall-cmd --reload
+echo "<h1> NODO1 </h1>" | tee /usr/share/nginx/html/index.html
+instalar nano
+
+nano /etc/keepalived/keepalived.conf
+echo "" | tee /etc/keepalived/keepalived.conf
+
+############################## ALTA DISPONIBILIDAD #########################
+global_defs {
+  # Keepalived process identifier
+  router_id nginx # Se puede cambiar dependiendo del servicio.
+}
+
+# Script to check whether Nginx is running or not
+vrrp_script check_nginx {
+  script "/bin/check_nginx.sh" # Verifica que el servicio funcione.
+  interval 2
+  weight 50
+}
+
+# Virtual interface - The priority specifies the order in 
+# which the assigned interface to take over in a failover
+vrrp_instance VI_01 {
+  state MASTER # Dependiento el nodo se configura MASTER o BACKUP
+  interface enp0s3 # Agregar la interfaz de red eth0, enp0s3, etc.
+  virtual_router_id 50 # De 0-255, el mismo en todos los nodos.
+  priority 110 # 110 para MASTER o 100 para BACKUP
+
+  # The virtual ip address shared between the two NGINX 
+  # Web Server which will float
+  virtual_ipaddress {
+    192.168.100.167/24 # Esta IP debe ir en todos los nodos.
+  }
+  track_script {
+    check_nginx
+  }
+  authentication {
+    auth_type AH
+    auth_pass secret
+  }
+}
+
+
+/////
+
+
+nano /bin/check_nginx.sh
+--Copiamos lo siguiente:
+
+################## check_nginx.sh ###############
+
+#!/bin/sh
+if [ -z "`pidof nginx`" ]; then
+  exit 1
+fi
+
+
+chmod 755 /bin/check_nginx.sh
+systemctl start keepalived 
+systemctl enable keepalived 
+systemctl status keepalived
+firewall-cmd --add-rich-rule='rule protocol value="vrrp" accept' --permanent
+service keepalived restart
+ip a (revisar la 167)
+
+
+
+
+Agregar sincronizacion de la aplicacion
+rsync
